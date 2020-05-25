@@ -16,6 +16,7 @@ type Reqlim struct {
 func New(n int64, h http.Handler) *Reqlim {
 	return &Reqlim{
 		s: semaphore.NewWeighted(n),
+		h: h,
 	}
 }
 
