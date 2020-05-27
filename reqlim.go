@@ -1,6 +1,7 @@
 package reqlim
 
 import (
+	"io"
 	"net/http"
 
 	"golang.org/x/sync/semaphore"
@@ -8,25 +9,37 @@ import (
 
 // Reqlim limits number of request in parallel processing.
 type Reqlim struct {
-	s *semaphore.Weighted
-	h http.Handler
+	handler http.Handler
+	sem     *semaphore.Weighted
+
+	body    string
 }
 
-// New creates a request limitter with weight `n`.
-func New(n int64, h http.Handler) *Reqlim {
+// Handler returns a http.Handler that runs h with the given concurrency limit.
+func Handler(h http.Handler, limit int, msg string) http.Handler {
 	return &Reqlim{
-		s: semaphore.NewWeighted(n),
-		h: h,
+		sem:     semaphore.NewWeighted(int64(limit)),
+		handler: h,
+		body:    msg,
 	}
 }
 
 // ServeHTTP implements http.Handler
 func (rl *Reqlim) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if !rl.s.TryAcquire(1) {
+	if !rl.sem.TryAcquire(1) {
 		w.WriteHeader(http.StatusServiceUnavailable)
-		w.Write([]byte("server busy"))
+		io.WriteString(w, rl.errorBody())
 		return
 	}
-	rl.h.ServeHTTP(w, r)
-	rl.s.Release(1)
+	rl.handler.ServeHTTP(w, r)
+	rl.sem.Release(1)
 }
+
+func (rl *Reqlim) errorBody() string {
+	if rl.body != "" {
+		return rl.body
+	}
+	return defaultErrorBody
+}
+
+const defaultErrorBody = "<html><head><title>Server busy</title></head><body><h1>Server busy</h1></body></html>"
