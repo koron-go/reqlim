@@ -1,5 +1,5 @@
 module github.com/koron-go/reqlim
 
-go 1.14
+go 1.25.0
 
-require golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a
+require golang.org/x/sync v0.22.0
